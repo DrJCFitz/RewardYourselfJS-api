@@ -17,7 +17,7 @@ db.open(function (error, client) {
 });
 
 // cron: <Minute 1-60> <Hour 0-23> <Day_of_the_Month 1-31> <Month_of_the_Year 1-12> <Day_of_the_Week 1-7>
-//var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
+var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
 	async.eachSeries(portals,
 			function(portal, done) {
 				crontest(portal,
@@ -48,8 +48,8 @@ db.open(function (error, client) {
 					});
 			}, function(err) {
 				console.log('end callback');
-//				db.close();
-//				process.exit();
+				db.close();
+				process.exit();
 			}
 		); 
-//}, [portals]);
+}, [portals]);
