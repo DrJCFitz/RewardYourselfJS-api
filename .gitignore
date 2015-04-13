@@ -1,2 +1,6 @@
+.metadata
+.project
+config/portal-keys.js
+config/portals.js
 bower_components/*
 node_modules/*
