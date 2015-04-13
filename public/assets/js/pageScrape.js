@@ -46,22 +46,51 @@
         
         function process() {
             var merchants = [];
-            $.each($element, function (index, merchantRoot) {
-                debug(index);
-                var name = parseName($(merchantRoot).find(self.variables.merchant.name.element).text());
-                var key = merchantNameToKey( name );
-                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
-                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );
-                if ( reward !== null ) {
-	                merchants.push( 
-	                    new merchant( name,
-	                        key,
-	                        link,
-	                        reward 
-	                    )
-	                );
-                }
-            });
+            switch (self.variables.portal.scrapeType) {
+            	case 0:
+		            $.each($element, function (index, merchantRoot) {
+		                debug(index);
+		                var name = parseName($(merchantRoot).find(self.variables.merchant.name.element).text());
+		                var key = merchantNameToKey( name );
+		                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
+		                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );
+		                if ( reward !== null ) {
+			                merchants.push( 
+			                    new merchant( name,
+			                        key,
+			                        link,
+			                        reward 
+			                    )
+			                );
+		                }
+		            });
+		            break;
+            	case 1:
+            		var nest = self.variables.portal.rootVariable.split('.');
+            		var promo = window[nest[0]];
+            		nest.slice(1).forEach(function(part,index){
+            			promo = promo[part];
+            		});
+            		promo.forEach(function(entry,index){
+            			debug(index);
+            			var name = entry[self.variables.merchant.name.element];
+            			var key = merchantNameToKey(name);
+            			var link = entry[self.variables.merchant.link.element];
+            			var reward = parseReward( entry[self.variables.merchant.reward.element] );
+            			if ( reward !== null ) {
+			                merchants.push( 
+			                    new merchant( name,
+			                        key,
+			                        link,
+			                        reward 
+			                    )
+			                );
+		                }
+            		});
+            		break;
+            	default:
+            		break;
+            }
             return JSON.stringify( merchants );
         }
       

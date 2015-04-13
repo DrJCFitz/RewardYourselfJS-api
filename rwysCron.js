@@ -30,43 +30,22 @@ var config =
 module.exports = function(portal, callback) {
 	var merchantScrape = function(portal) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
-		spooky.then(function(){
-	       	 this.emit('console','base defined? '+ this.evaluate(function(){
-	    		 return jQuery('div.mn_groupsWrap').length;
-	    	 }));
-
-	       	 this.waitForSelector('div.mn_groupsWrap',
-				function() {
-					this.emit('console', 'waited for selector');
-				},
-				function(){
-					this.emit('console', 'selector wait timeout');
-					this.capture('timedOut.png');
-				},
-				100000);
-		});
 		spooky.then( [{portal:portal},
 		    function(){ 
-        	 this.emit('console','jquery defined as jquery? '+ this.evaluate(function(){
-        		 return (jQuery !== undefined);
-        	 }));
-        	 this.emit('console','jquery defined as $? '+ this.evaluate(function(){
-        		 return ($ !== undefined);
-        	 }));
-        	 this.emit('console','rootElement defined as? '+ this.evaluate(function(pageMerchant){
-        		 return pageMerchant.portal.rootElement;
-        	 },{pageMerchant:portal}));
-        	 this.emit('console','rootElement defined? '+ this.evaluate(function(pageMerchant){
-        		 return jQuery(pageMerchant.portal.rootElement).length;
-        	 },{pageMerchant:portal}));
-
-		     this.emit('processedMerchant',
+			 this.emit('processedMerchant',
 		            this.evaluate(function(pageMerchant){
-		                var stores = $(pageMerchant.portal.rootElement)
-		                .pageScrape({ merchantKeys: keyTrans,
-		                             portal: pageMerchant.portal,
-		                                      merchant: pageMerchant.pageData });
-		                return stores.process();
+		            	var stores;
+		            	switch (pageMerchant.portal.scrapeType) {
+		            		case 0:
+				                stores = $(pageMerchant.portal.rootElement);
+				                break;
+		            		default:
+		            			stores = $('body');
+		            			break;
+		            	}
+		            	return stores.pageScrape({ merchantKeys: keyTrans,
+            				portal: pageMerchant.portal,
+            				merchant: pageMerchant.pageData }).process();
 		            },
 		            {pageMerchant: portal})
 		        );
