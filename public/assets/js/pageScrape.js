@@ -15,6 +15,7 @@
                          };
 
         function parseName( rawName ){
+        	//debug(rawName);
             if (self.variables.merchant.name.replace === true ) {
                 return rawName.replace(new RegExp(self.variables.merchant.name.regex), '').trim();
             } else {
@@ -49,8 +50,13 @@
             switch (self.variables.portal.scrapeType) {
             	case 0:
 		            $.each($element, function (index, merchantRoot) {
-		                debug(index);
+		                //debug(index);
 		                var name = parseName($(merchantRoot).find(self.variables.merchant.name.element).text());
+		                // employ backup option for finding name
+		                if ( null === name ){
+		                	// in case of ebates, name is embedded in img attribute sometimes
+		                	name = parseName($(merchantRoot).find(self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr));
+		                }
 		                var key = merchantNameToKey( name );
 		                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
 		                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );
