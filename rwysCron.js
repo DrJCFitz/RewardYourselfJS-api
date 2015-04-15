@@ -40,7 +40,7 @@ module.exports = function(portal, callback) {
 				                stores = $(pageMerchant.portal.rootElement);
 				                break;
 		            		default:
-		            			stores = $('body');
+		            			stores = jQuery('body');
 		            			break;
 		            	}
 		            	return stores.pageScrape({ merchantKeys: keyTrans,
