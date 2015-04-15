@@ -81,6 +81,10 @@ module.exports = function(portal, callback) {
 			callback(null, merchantResult);		
 		});
 		
+		spooky.on('error', function(msg, stacktrace){
+			callback(msg, stacktrace);
+		});
+		
 		spooky.on('processedMerchant', function (result) {
 			merchantResult = result;
 		});

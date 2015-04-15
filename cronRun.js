@@ -17,12 +17,12 @@ db.open(function (error, client) {
 });
 
 // cron: <Minute 1-60> <Hour 0-23> <Day_of_the_Month 1-31> <Month_of_the_Year 1-12> <Day_of_the_Week 1-7>
-var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
+//var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
 	async.eachSeries(portals,
 			function(portal, done) {
 				crontest(portal,
 					function(err, data){
-						if (err) { console.log(err); }
+						if (err) { console.log(err); console.log(data); }
 						
 					    var merchants = JSON.parse(data);
 					    console.log(merchants.length + ' merchants returned');
@@ -52,4 +52,4 @@ var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
 				process.exit();
 			}
 		); 
-}, [portals]);
+//}, [portals]);
