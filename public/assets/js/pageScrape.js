@@ -51,15 +51,31 @@
             	case 0:
 		            $.each($element, function (index, merchantRoot) {
 		                //debug(index);
-		                var name = parseName($(merchantRoot).find(self.variables.merchant.name.element).text());
+		            	var alt = false;
+		                var name = $(merchantRoot).find(self.variables.merchant.name.element).text();
 		                // employ backup option for finding name
-		                if ( null === name ){
-		                	// in case of ebates, name is embedded in img attribute sometimes
-		                	name = parseName($(merchantRoot).find(self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr));
+		                if ( name == '' && self.variables.merchant.name.altElement != undefined){
+		                	// use alternate element
+		                	alt = true;
+		                	name = $(merchantRoot).find(self.variables.merchant.name.altElement).text();
 		                }
+		                if ( null === name ) {
+		                	// in case of ebates, name is embedded in img attribute sometimes
+		                	if (alt) {
+		                		name = $(merchantRoot).find(self.variables.merchant.name.altElement+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
+		                	} else {
+			                	name = $(merchantRoot).find(self.variables.merchant.name.element+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
+		                	}
+		                }
+		                name = parseName( name );
 		                var key = merchantNameToKey( name );
-		                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
-		                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );
+		                if (alt) {
+			                var link = $(merchantRoot).find(self.variables.merchant.link.altElement).attr('href');
+			                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.altElement).text() );
+		                } else {
+			                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
+			                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );		                	
+		                }
 		                if ( reward !== null ) {
 			                merchants.push( 
 			                    new merchant( name,
