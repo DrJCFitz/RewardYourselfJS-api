@@ -47,78 +47,43 @@
         
         function process() {
             var merchants = [];
-            switch (self.variables.portal.scrapeType) {
-            	case 0:
-                    return 'in case 0';
-		            $.each($element, function (index, merchantRoot) {
-		                //debug(index);
-		            	var alt = false;
-		                var name = $(merchantRoot).find(self.variables.merchant.name.element).text();
-		                // employ backup option for finding name
-		                if ( name == '' && self.variables.merchant.name.altElement != undefined){
-		                	// use alternate element
-		                	alt = true;
-		                	name = $(merchantRoot).find(self.variables.merchant.name.altElement).text();
-		                }
-		                if ( null === name ) {
-		                	// in case of ebates, name is embedded in img attribute sometimes
-		                	if (alt) {
-		                		name = $(merchantRoot).find(self.variables.merchant.name.altElement+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
-		                	} else {
-			                	name = $(merchantRoot).find(self.variables.merchant.name.element+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
-		                	}
-		                }
-		                name = parseName( name );
-		                var key = merchantNameToKey( name );
-		                if (alt) {
-			                var link = $(merchantRoot).find(self.variables.merchant.link.altElement).attr('href');
-			                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.altElement).text() );
-		                } else {
-			                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
-			                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );		                	
-		                }
-		                if ( reward !== null ) {
-			                merchants.push( 
-			                    new merchant( name,
-			                        key,
-			                        link,
-			                        reward 
-			                    )
-			                );
-		                }
-		            });
-		            break;
-            	case 1:
-            		var nest = self.variables.portal.rootVariable.split('.');
-					// this line works
-					//return window[nest[0]][nest[1]][nest[2]].length;
-  		            var promo = window[nest[0]];
-  		            var remaining = nest.slice(1);
-					for (param in remaining){
-						promo = promo[remaining[param]];
-					}
-
-            		promo.forEach(function(entry,index){
-            			debug(index);
-            			var name = entry[self.variables.merchant.name.element];
-            			var key = merchantNameToKey(name);
-            			var link = entry[self.variables.merchant.link.element];
-            			var reward = parseReward( entry[self.variables.merchant.reward.element] );
-            			merchants.push({name:name, key:key, link:link, reward:reward});
-            			if ( reward !== null ) {
-			                merchants.push( 
-			                    new merchant( name,
-			                        key,
-			                        link,
-			                        reward 
-			                    )
-			                );
-		                }
-            		});
-            		break;
-            	default:
-            		break;
-            }
+            $.each($element, function (index, merchantRoot) {
+                //debug(index);
+            	var alt = false;
+                var name = $(merchantRoot).find(self.variables.merchant.name.element).text();
+                // employ backup option for finding name
+                if ( name == '' && self.variables.merchant.name.altElement != undefined){
+                	// use alternate element
+                	alt = true;
+                	name = $(merchantRoot).find(self.variables.merchant.name.altElement).text();
+                }
+                if ( null === name ) {
+                	// in case of ebates, name is embedded in img attribute sometimes
+                	if (alt) {
+                		name = $(merchantRoot).find(self.variables.merchant.name.altElement+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
+                	} else {
+	                	name = $(merchantRoot).find(self.variables.merchant.name.element+' '+self.variables.merchant.name.attrElement).attr(self.variables.merchant.name.attr);
+                	}
+                }
+                name = parseName( name );
+                var key = merchantNameToKey( name );
+                if (alt) {
+	                var link = $(merchantRoot).find(self.variables.merchant.link.altElement).attr('href');
+	                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.altElement).text() );
+                } else {
+	                var link = $(merchantRoot).find(self.variables.merchant.link.element).attr('href');
+	                var reward = parseReward( $(merchantRoot).find(self.variables.merchant.reward.element).text() );		                	
+                }
+                if ( reward !== null ) {
+	                merchants.push( 
+	                    new merchant( name,
+	                        key,
+	                        link,
+	                        reward 
+	                    )
+	                );
+                }
+            });
             return JSON.stringify( merchants );
         }
       
@@ -168,7 +133,14 @@
             }
         }
         
-        return { process: process, test: test };
+        return { process: process,
+        		 merchant: merchant,
+        		 reward: reward,
+        		 parseName: parseName,
+        		 merchantNameToKey: merchantNameToKey,
+        		 parseReward: parseReward,
+        		 test: test 
+        	   };
     };
 
     $.fn.pageScrape = function(options) {

@@ -23,8 +23,7 @@ db.open(function (error, client) {
 				crontest(portal,
 					function(err, data){
 						if (err) { console.log(err); console.log(data); }
-						console.log(data);
-					    var merchants = JSON.parse(data);
+						var merchants = JSON.parse(data);
 					   
 					    console.log(merchants.length + ' merchants returned');
 					    console.log('portalKey:'+portal.portal.key+', type:'+portal.portal.type);

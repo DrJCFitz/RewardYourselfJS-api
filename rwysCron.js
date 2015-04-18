@@ -34,22 +34,47 @@ module.exports = function(portal, callback) {
 		    function(){ 
 			 this.emit('processedMerchant',
 		            this.evaluate(function(pageMerchant){
-		            	var stores;
-		            	switch (pageMerchant.portal.scrapeType) {
-		            		case 0:
-				                stores = $(pageMerchant.portal.rootElement);
-				                break;
-		            		default:
-		            			stores = jQuery('body');
-		            			break;
-		            	}
-		            	return stores.pageScrape({ merchantKeys: keyTrans,
+		                return $(pageMerchant.portal.rootElement).pageScrape({ merchantKeys: keyTrans,
             				portal: pageMerchant.portal,
             				merchant: pageMerchant.pageData }).process();
 		            },
 		            {pageMerchant: portal})
 		        );
 	    }]);
+		return spooky.run();
+	}
+
+	var variableScrape = function(portal) {
+		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
+		spooky.then([{portal:portal},
+		             function(){ 
+						this.emit('processedMerchant',
+								this.evaluate(function(pageMerchant){
+									$ps = $.fn.pageScrape({ merchantKeys: keyTrans,
+			            				portal: pageMerchant.portal,
+			            				merchant: pageMerchant.pageData });
+									var merchants = [];
+									var nest = pageMerchant.portal.rootVariable.split('.');
+					  		  		var promo = window[nest[0]];
+				  		            var evalstring = 'window'+"['"+nest[0]+"']";
+				  		            var remaining = nest.slice(1);
+					  		  		for (param in remaining){
+					  		  			promo = promo[remaining[param]];
+					  		  		}
+					  		  		promo.forEach(function(entry,index){
+					  		  			var name = $ps.parseName(entry[pageMerchant.pageData.name.element]);
+					  		  			var key = $ps.merchantNameToKey(name);
+					  		  			var link = entry[pageMerchant.pageData.link.element];
+					  		  			var reward = $ps.parseReward(entry[pageMerchant.pageData.reward.element]);
+					  		  			if ( reward !== null ) {
+					  		                  merchants.push( new $ps.merchant(name, key, link, reward) );
+					  		            }
+					  		  		});
+					  		  		return JSON.stringify(merchants);
+					            },
+					            {pageMerchant: portal})
+				        );
+		}]);
 		return spooky.run();
 	}
 
@@ -88,7 +113,16 @@ module.exports = function(portal, callback) {
 		spooky.on('processedMerchant', function (result) {
 			merchantResult = result;
 		});
-		return merchantScrape(portal);
+		
+		switch (portal.portal.scrapeType) {
+			case 0:
+				return merchantScrape(portal);
+				break;
+			case 1:
+				console.log('heading to variableScrape');
+				return variableScrape(portal);
+				break;
+		}
 	}
 	var spooky = new Spooky(config, spookyFunction);
 }
