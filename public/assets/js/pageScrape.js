@@ -49,6 +49,7 @@
             var merchants = [];
             switch (self.variables.portal.scrapeType) {
             	case 0:
+                    return 'in case 0';
 		            $.each($element, function (index, merchantRoot) {
 		                //debug(index);
 		            	var alt = false;
@@ -89,16 +90,21 @@
 		            break;
             	case 1:
             		var nest = self.variables.portal.rootVariable.split('.');
-            		var promo = window[nest[0]];
-            		nest.slice(1).forEach(function(part,index){
-            			promo = promo[part];
-            		});
+					// this line works
+					//return window[nest[0]][nest[1]][nest[2]].length;
+  		            var promo = window[nest[0]];
+  		            var remaining = nest.slice(1);
+					for (param in remaining){
+						promo = promo[remaining[param]];
+					}
+
             		promo.forEach(function(entry,index){
             			debug(index);
             			var name = entry[self.variables.merchant.name.element];
             			var key = merchantNameToKey(name);
             			var link = entry[self.variables.merchant.link.element];
             			var reward = parseReward( entry[self.variables.merchant.reward.element] );
+            			merchants.push({name:name, key:key, link:link, reward:reward});
             			if ( reward !== null ) {
 			                merchants.push( 
 			                    new merchant( name,
