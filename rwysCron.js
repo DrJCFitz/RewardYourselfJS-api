@@ -27,7 +27,7 @@ var config =
   }
 
 
-module.exports = function(portal, callback) {
+module.exports = function(portal, portal_keys, callback) {
 	var merchantScrape = function(portal) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
 		spooky.then( [{portal:portal},
@@ -44,35 +44,93 @@ module.exports = function(portal, callback) {
 		return spooky.run();
 	}
 
-	var variableScrape = function(portal) {
+	var variableScrape = function(portal, portal_keys) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
-		spooky.then([{portal:portal},
-		             function(){ 
-						this.emit('processedMerchant',
-								this.evaluate(function(pageMerchant){
-									$ps = $.fn.pageScrape({ merchantKeys: keyTrans,
-			            				portal: pageMerchant.portal,
-			            				merchant: pageMerchant.pageData });
-									var merchants = [];
-									var nest = pageMerchant.portal.rootVariable.split('.');
-					  		  		var promo = window[nest[0]];
-				  		            var evalstring = 'window'+"['"+nest[0]+"']";
-				  		            var remaining = nest.slice(1);
+		spooky.then([{portal: portal,
+			   		  portal_keys: portal_keys},
+		             function(){ 					    
+					    var parseName = function( portal, rawName ){
+					    	//debug(rawName);
+					        if (portal.pageData.name.replace === true ) {
+					            return rawName.replace(new RegExp(portal.pageData.name.regex), '').trim();
+					        } else {
+					            return rawName.trim();
+					        }
+					    }
+			
+					    var parseReward = function( portal, rawReward ){
+					        //debug( rawReward );
+					        //debug(self.variables.merchant.reward.regex);
+					        var unit, rate, limit, value;
+					        var matchReward = rawReward.match(new RegExp(portal.pageData.reward.regex));
+					        if ( null != matchReward ) {
+						        limit = ( null == matchReward[portal.pageData.reward.limitIndex] ) ? '' : matchReward[portal.pageData.reward.limitIndex];
+						        if ( null == matchReward[portal.pageData.reward.dollarIndex] ) {
+					                unit = ( null == matchReward[portal.pageData.reward.unitIndex] ) ? '' : matchReward[portal.pageData.reward.unitIndex];
+					                rate = ( null == matchReward[portal.pageData.reward.rateIndex] ) ? '' :  matchReward[portal.pageData.reward.rateIndex];
+						        } else { 
+					                unit = matchReward[portal.pageData.reward.dollarIndex];
+					                rate = matchReward[portal.pageData.reward.dollarIndex];
+					            }
+						        value = ( null == matchReward[portal.pageData.reward.valueIndex] ) ? 0.0 : parseFloat(matchReward[portal.pageData.reward.valueIndex]);
+						        return {value: value,
+						        		unit: unit,
+						        		rate: rate,
+						        		limit: limit,
+								        // use the id for the timestamp in seconds
+								        id: portal.portal.key + parseInt(new Date().getTime()/1000),
+								        equivalentPercentage: portal.portal.equivalentPercentage,
+								        currency: portal.portal.currency };
+					        } else {
+					        	return matchReward;
+					        }
+					    }
+					    
+					    var merchantNameToKey = function( portal, portal_keys, merchantName ) {
+					        // strip any spaces or special characters from name and convert to lowercase
+					        var keyName = merchantName.replace(/\W+/g,'').replace(/\s+/g,'').toLowerCase();
+					        if (portal_keys[keyName] === undefined ) {
+					            return keyName;
+					        } else {
+					            return portal_keys[keyName];
+					        }
+					    }
+					    
+					    this.emit('processedMerchant',
+								this.evaluate(function(pageMerchant, portal_keys, parseName, parseReward, merchantNameToKey){
+									var name, key, link, reward,
+										merchants = [],
+										nest = pageMerchant.portal.rootVariable.split('.');
+					  		  		var promo = window[nest[0]],
+					  		  			remaining = nest.slice(1);
 					  		  		for (param in remaining){
 					  		  			promo = promo[remaining[param]];
 					  		  		}
 					  		  		promo.forEach(function(entry,index){
-					  		  			var name = $ps.parseName(entry[pageMerchant.pageData.name.element]);
-					  		  			var key = $ps.merchantNameToKey(name);
-					  		  			var link = entry[pageMerchant.pageData.link.element];
-					  		  			var reward = $ps.parseReward(entry[pageMerchant.pageData.reward.element]);
-					  		  			if ( reward !== null ) {
-					  		                  merchants.push( new $ps.merchant(name, key, link, reward) );
-					  		            }
-					  		  		});
-					  		  		return JSON.stringify(merchants);
-					            },
-					            {pageMerchant: portal})
+						  		  			name = parseName(pageMerchant, entry[pageMerchant.pageData.name.element]);
+						  		  			key = merchantNameToKey(pageMerchant, portal_keys, name);
+						  		  			link = entry[pageMerchant.pageData.link.element];
+						  		  			reward = parseReward(pageMerchant, entry[pageMerchant.pageData.reward.element]);
+						  		  			if ( reward != null ) {
+						  		                  merchants.push( { name: name,
+															        key: key,
+															        link: pageMerchant.portal.baseUrl + link.split(new RegExp('(\\.\\.)?(.+)'))[2],
+															        reward: reward,
+															        enabled: true,
+															        portalName: pageMerchant.portal.name,
+															        portalKey: pageMerchant.portal.key,
+															        type: pageMerchant.portal.type,
+															        dateCreated: new Date() } );
+						  		            }
+						  		  		});
+					  		  			return JSON.stringify(merchants);
+						            },
+						            { pageMerchant: portal,
+						              portal_keys: portal_keys,
+						              parseName: parseName,
+						              parseReward: parseReward,
+						              merchantNameToKey: merchantNameToKey
+						            })
 				        );
 		}]);
 		return spooky.run();
@@ -120,7 +178,7 @@ module.exports = function(portal, callback) {
 				break;
 			case 1:
 				console.log('heading to variableScrape');
-				return variableScrape(portal);
+				return variableScrape(portal, portal_keys);
 				break;
 		}
 	}

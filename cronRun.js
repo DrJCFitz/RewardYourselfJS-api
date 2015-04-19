@@ -2,6 +2,7 @@ var mongodb = require('mongodb');
 var async = require('async');
 var crontab = require('node-crontab');
 var portals = require('./config/portals.js');
+var portal_keys = require('./config/portal-keys.js');
 var crontest = require('./rwysCron.js');
 
 var server = new mongodb.Server("127.0.0.1", 27017, {});
@@ -20,7 +21,7 @@ db.open(function (error, client) {
 //var jobId = crontab.scheduleJob("* 2 * * *", function(portals){
 	async.eachSeries(portals,
 			function(portal, done) {
-				crontest(portal,
+				crontest(portal, portal_keys,
 					function(err, data){
 						if (err) { console.log(err); console.log(data); }
 						var merchants = JSON.parse(data);
