@@ -106,11 +106,14 @@ module.exports = function(portal, portal_keys, callback) {
 					  		  		for (param in remaining){
 					  		  			promo = promo[remaining[param]];
 					  		  		}
-					  		  		promo.forEach(function(entry,index){
+									promo.forEach(function(entry,index){
 						  		  			name = parseName(pageMerchant, entry[pageMerchant.pageData.name.element]);
 						  		  			key = merchantNameToKey(pageMerchant, portal_keys, name);
 						  		  			link = entry[pageMerchant.pageData.link.element];
-						  		  			reward = parseReward(pageMerchant, entry[pageMerchant.pageData.reward.element]);
+						  		  			if ( null == link) {
+												link = pageMerchant.pageData.link.altPath + entry[pageMerchant.pageData.link.altModifier];
+											}
+											reward = parseReward(pageMerchant, entry[pageMerchant.pageData.reward.element]);
 						  		  			if ( reward != null ) {
 						  		                  merchants.push( { name: name,
 															        key: key,
