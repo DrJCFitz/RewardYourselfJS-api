@@ -6,7 +6,7 @@ try {
 var merchantResult = null;
 
 var config = 
-{ child: { transport: 'http', 'ssl-protocol':'any', 'ignore-ssl-errors':'yes' },
+{ child: { transport: 'http', 'will-navigate':false, 'ssl-protocol':'any', 'ignore-ssl-errors':'yes' },
   casper: { logLevel: 'debug',
           verbose: true,
           clientScripts: [ './bower_components/jquery/dist/jquery.js',
@@ -175,6 +175,13 @@ module.exports = function(portal, portal_keys, callback) {
 			merchantResult = result;
 		});
 		
+	   	spooky.on("resource.requested", function(requestData, networkRequest){
+    			console.log('Request (#' + requestData.id + '): ' + JSON.stringify(requestData));
+    			if (requestData.url == 'about:blank') {
+        			// this is a redirect url
+        			networkRequest.abort();
+			}
+		});
 		switch (portal.portal.scrapeType) {
 			case 0:
 				return merchantScrape(portal);
