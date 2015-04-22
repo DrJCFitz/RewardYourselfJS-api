@@ -34,7 +34,7 @@ module.exports = function(portal, portal_keys, callback) {
 		    function(){ 
 			 this.emit('processedMerchant',
 		            this.evaluate(function(pageMerchant){
-		                return $(pageMerchant.portal.rootElement).pageScrape({ merchantKeys: keyTrans,
+		                return jQuery(pageMerchant.portal.rootElement).pageScrape({ merchantKeys: keyTrans,
             				portal: pageMerchant.portal,
             				merchant: pageMerchant.pageData }).process();
 		            },
