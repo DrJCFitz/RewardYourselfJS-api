@@ -5,18 +5,6 @@ try {
 }
 var portal_keys = require('./config/portal-keys.js');
 
-var response = {
-		'merchants': [],
-		'health': { 'jquery': false, 
-			'root': false, 
-			'name': false, 
-			'altName': null, 
-			'link': false, 
-			'altLink': null, 
-			'reward': false, 
-			'altReward': null }
-};
-
 var config = 
 { child: { 'transport': 'http', 
 	'ssl-protocol':'any', 
@@ -112,12 +100,35 @@ var merchantNameToKey = function( merchantName ) {
 }
 
 module.exports = function(portal, callback) {
-	
-	var singleScrape = function(portal) {
+	var response = {
+			'merchants': [],
+			'health': { 'jquery': false, 
+				'root': false, 
+				'name': false, 
+				'altName': null, 
+				'link': false, 
+				'altLink': null, 
+				'reward': false, 
+				'altReward': null }
+	};
+
+	var singleScrape = function(portal, response) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
 		spooky.then( [{portal:portal, response: response},
+		  		    function(){
+		  				this.emit('console',this.evaluate(function(pageMerchant, response){
+		  					// make sure jQuery is loaded
+		  					response.health.jquery = (jQuery !== undefined);
+		  					return JSON.stringify([jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text(), 
+		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim(),
+		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim() != '',
+		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim() !== '',
+		  					                       jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.altElement).eq(0).attr(pageMerchant.pageData.name.altAttr)]);
+		  				},{pageMerchant:portal, response:response}));
+		}]);
+		spooky.then( [{portal:portal, response: response},
 		    function(){
-				this.emit('process',this.evaluate(function(pageMerchant, response){
+				this.emit('processed',this.evaluate(function(pageMerchant, response){
 					// make sure jQuery is loaded
 					response.health.jquery = (jQuery !== undefined);
 					if (response.health.jquery) {
@@ -139,20 +150,27 @@ module.exports = function(portal, callback) {
 			 						response.health.altReward = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.altElement).length > 0);		            				
 		            			}
 		            			
-		            			if ( (response.health.name && response.health.link && response.health.reward) || 
-		            					(response.health.altName && response.health.altLink && response.health.altReward) ) {
-		            				jQuery(pageMerchant.portal.rootElement).each(function(index, element){
-		                				if (response.health.name) {
-		                					response.merchants.push({name: jQuery(element).find(pageMerchant.pageData.name.element).text(), 
-		                							link: jQuery(element).find(pageMerchant.pageData.link.element).attr('href'),
-		                							reward: jQuery(element).find(pageMerchant.pageData.reward.element).text() } );
-		                				} else {
-		                					response.merchants.push({ name: jQuery(element).find(pageMerchant.pageData.name.altElement).attr(pageMerchant.pageData.name.altAttr), 
-		                							link: jQuery(element).find(pageMerchant.pageData.link.altElement).attr('href'),
-		                							reward: jQuery(element).find(pageMerchant.pageData.reward.altElement).text() } );
-		                				}
-		                			});
-		            			}
+		            			// ebates has a mixture of regular and alternate elements
+		            			// parse strategy on element-by-element basis
+	            				jQuery(pageMerchant.portal.rootElement).each(function(index, element){
+	            					var name, link, reward;
+	            					var name = jQuery(element).find(pageMerchant.pageData.name.element).text().trim();
+	                				if ( name !== '') {
+	                					link = jQuery(element).find(pageMerchant.pageData.link.element).attr('href');
+	                					reward = jQuery(element).find(pageMerchant.pageData.reward.element).text().trim();
+	                				} else if (pageMerchant.pageData.name.altElement !== undefined) {
+	                					response.health.altName = true;
+	                					name = jQuery(element).find(pageMerchant.pageData.name.altElement).attr(pageMerchant.pageData.name.altAttr).trim();
+            							link = jQuery(element).find(pageMerchant.pageData.link.altElement).attr('href');
+            							reward = jQuery(element).find(pageMerchant.pageData.reward.altElement).text().trim();
+	                				}
+	                				if (pageMerchant.pageData.reward.replace !== undefined) {
+	                					reward = reward.replace(new RegExp(pageMerchant.pageData.reward.replace),'').trim();
+	                				}
+	                				// since $.each is asynchronous, there is no way to eliminate duplicate entries
+	                				// that will need to be handled by grouping in the aggregate db call
+	                				response.merchants.push({name: name, link:link, reward:reward});
+	                			});
 		            		}
 	            			break;
 	            		case 1:
@@ -181,7 +199,6 @@ module.exports = function(portal, callback) {
 	            			break;
 		            	}
 	            	}
-
 					return JSON.stringify(response);
 				},
 				{ pageMerchant: portal,
@@ -219,7 +236,7 @@ module.exports = function(portal, callback) {
 			//console.log('Request (#' + requestData.id + '): ' + JSON.stringify(requestData));
 			if (requestData.url == 'about:blank') {
     			// this is a redirect url that prevents scraping
-    			networkRequest.abort();
+//    			networkRequest.abort();
 			}
 	   	});
 		
@@ -241,7 +258,8 @@ module.exports = function(portal, callback) {
 		    		+ " at URL "+resourceError.url);
 		});
 		
-		spooky.on('process', function (scrapeResult) {
+		spooky.on('processed', function (scrapeResult) {
+			console.log('processed: '+scrapeResult);
 			response = JSON.parse(scrapeResult);
 			if (response.merchants.length > 0) {
 				response.merchants.forEach(function(merch, index, origArray){
@@ -250,7 +268,6 @@ module.exports = function(portal, callback) {
 				});
 				console.log('merchant 0:'+JSON.stringify(response.merchants[0]));
 			}
-			console.log('processed # merchants:'+response.merchants.length);
 		});
 		
 		spooky.on('run.complete', function(){
@@ -258,7 +275,7 @@ module.exports = function(portal, callback) {
 			callback(null, JSON.stringify(response));
 		});		
 
-		return singleScrape(portal);
+		return singleScrape(portal, response);
 	}
 	var spooky = new Spooky(config, spookyFunction);
 }
