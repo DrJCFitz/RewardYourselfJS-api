@@ -5,28 +5,6 @@ try {
 }
 var portal_keys = require('./config/portal-keys.js');
 
-var config = 
-{ child: { 'transport': 'http', 
-	'ssl-protocol':'any', 
-	'ignore-ssl-errors':'yes' 
-		},
-  casper: { logLevel: 'debug',
-          verbose: true,
-          viewportSize: { width: 800, height: 1024 },
-          remoteScripts: [ ],
-          pageSettings: {
-              javascriptEnabled: true,
-              loadImages: false,
-              loadPlugins: false,
-              localToRemoteUrlAccessEnabled: false,
-              userAgent: "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:37.0) Gecko/20100101 Firefox/37.0",
-              userName: null,
-              password: null,
-              XSSAuditingEnabled: false
-        }
-  }
-}
-
 var	scrape = function(name, link, reward){
 	this.name = name;
 	this.link = link;
@@ -100,6 +78,28 @@ var merchantNameToKey = function( merchantName ) {
 }
 
 module.exports = function(portal, callback) {
+	var config = 
+	{ child: { 'transport': 'http', 
+		'ssl-protocol':'any', 
+		'ignore-ssl-errors':'yes' 
+			},
+	  casper: { logLevel: 'debug',
+	          verbose: true,
+	          viewportSize: { width: 800, height: 1024 },
+	          remoteScripts: [ ],
+	          pageSettings: {
+	              javascriptEnabled: true,
+	              loadImages: false,
+	              loadPlugins: false,
+	              localToRemoteUrlAccessEnabled: false,
+	              userAgent: "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:37.0) Gecko/20100101 Firefox/37.0",
+	              userName: null,
+	              password: null,
+	              XSSAuditingEnabled: false
+	        }
+	  }
+	}
+
 	var response = {
 			'merchants': [],
 			'health': { 'jquery': false, 
