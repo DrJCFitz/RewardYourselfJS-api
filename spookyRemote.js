@@ -13,7 +13,7 @@ var config =
   casper: { logLevel: 'debug',
           verbose: true,
           viewportSize: { width: 800, height: 1024 },
-          remoteScripts: [ 'https://code.jquery.com/jquery-2.1.3.min.js' ],
+          remoteScripts: [ ],
           pageSettings: {
               javascriptEnabled: true,
               loadImages: false,
@@ -112,6 +112,10 @@ module.exports = function(portal, callback) {
 				'altReward': null }
 	};
 
+	if (portal.portal.loadJquery) {
+		config.casper.remoteScripts.push('https://code.jquery.com/jquery-2.1.3.min.js');
+	}
+	
 	var singleScrape = function(portal, response) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
 		spooky.then( [{portal:portal, response: response},
@@ -197,6 +201,12 @@ module.exports = function(portal, callback) {
 	              		  		});
 	            			}
 	            			break;
+	            		case 2:
+	            			// auth and indirect navigation
+	            			break;
+	            		case 3:
+	            			// pagination
+	            			break;
 		            	}
 	            	}
 					return JSON.stringify(response);
@@ -233,10 +243,10 @@ module.exports = function(portal, callback) {
 		});
 
 	   	spooky.on("resource.requested", function(requestData, networkRequest){
-			//console.log('Request (#' + requestData.id + '): ' + JSON.stringify(requestData));
+			console.log('Request (#' + requestData.id + '): ' + JSON.stringify(requestData));
 			if (requestData.url == 'about:blank') {
     			// this is a redirect url that prevents scraping
-//    			networkRequest.abort();
+    			networkRequest.abort();
 			}
 	   	});
 		
@@ -245,6 +255,8 @@ module.exports = function(portal, callback) {
 		});
 
 		spooky.on("page.error", function(msg, trace) {
+			console.log("ERROR: " + msg 
+		    		+" for ["+portal.portal.key+","+portal.portal.type+"]");
 		    //callback(true, "ERROR: " + msg 
 		    //		+" for ["+portal.portal.key+","+portal.portal.type+"]");
 		});
@@ -272,6 +284,7 @@ module.exports = function(portal, callback) {
 		
 		spooky.on('run.complete', function(){
 			console.log('run complete # merchants:'+response.merchants.length);
+			console.log('run complete # merchants:'+JSON.stringify(response));
 			callback(null, JSON.stringify(response));
 		});		
 
