@@ -4,6 +4,7 @@ try {
     var Spooky = require('../lib/spooky');
 }
 var portal_keys = require('./config/portal-keys.js');
+var credentials = require('./config/credentials.js');
 
 var	scrape = function(name, link, reward){
 	this.name = name;
@@ -31,7 +32,7 @@ var reward = function ( value, unit, rate, limit, portal ) {
     this.rate = rate;
     this.limit = limit;
     // use the id for the timestamp in seconds
-    this.id = portal.portal.key+parseInt(new Date().getTime()/1000);
+    this.portalTS = portal.portal.key+parseInt(new Date().getTime()/1000);
     this.equivalentPercentage = portal.portal.equivalentPercentage;
     this.currency = portal.portal.currency;
     return this;
@@ -105,116 +106,265 @@ module.exports = function(portal, callback) {
 			'health': { 'jquery': false, 
 				'root': false, 
 				'name': false, 
-				'altName': null, 
 				'link': false, 
-				'altLink': null, 
-				'reward': false, 
-				'altReward': null }
+				'reward': false }
 	};
 
 	if (portal.portal.loadJquery) {
 		config.casper.remoteScripts.push('https://code.jquery.com/jquery-2.1.3.min.js');
 	}
 	
-	var singleScrape = function(portal, response) {
-		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
-		spooky.then( [{portal:portal, response: response},
-		  		    function(){
-		  				this.emit('console',this.evaluate(function(pageMerchant, response){
-		  					// make sure jQuery is loaded
-		  					response.health.jquery = (jQuery !== undefined);
-		  					return JSON.stringify([jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text(), 
-		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim(),
-		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim() != '',
-		  					                     jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text().trim() !== '',
-		  					                       jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.altElement).eq(0).attr(pageMerchant.pageData.name.altAttr)]);
-		  				},{pageMerchant:portal, response:response}));
-		}]);
-		spooky.then( [{portal:portal, response: response},
+	var authenticate = function() {
+		spooky.then(function(){
+			if ( !this.exists(portal.portal.logoutLinkSelector) && 
+					!this.exists(portal.auth.formSelector) ) {
+				this.echo('logout link does not exist, clicking login link');
+				this.click(portal.portal.loginLinkSelector);
+			}
+		});
+		spooky.then(function(){
+			if ( !this.exists(portal.portal.logoutLinkSelector) ) {
+				this.waitForSelector(portal.auth.formSelector,
+						function(){
+							this.echo('filling login page');
+							this.fillSelectors(portal.auth.formSelector, credentials[portal.portal.key], portal.auth.submitForm );
+						},
+						function(){
+							this.echo('form did not load');
+						},
+						portal.portal.waitTimeout
+				);
+			}
+		});
+		spooky.then(function(){
+			this.capture('filledAuth.png');
+		});
+	/*	casper.then(function(){
+			this.echo('logoutLink exists? '+this.exists(portal.portal.logoutLinkSelector));
+			if ( !this.exists(portal.portal.logoutLinkSelector) && !portal.auth.submitForm ) {
+				this.echo('clicking form submit');
+				this.click(portal.auth.submitSelector);
+			}
+		});
+		*/
+	}
+	
+	var navToAllStores = function(){
+		// this can be a link from the base url or a selector for pagination
+		if (portal.portal.allStoreSelector !== undefined) {
+			spooky.then([{portal:portal},function(){
+				this.emit('console','clicking all stores link');
+				this.waitForSelector(portal.portal.allStoreSelector,
+						function(){
+							this.click(portal.portal.allStoreSelector);
+						},
+						function(){
+							this.emit('console','no all stores link');
+						},
+						portal.portal.waitTimeout);				
+			}]);
+		} else {
+			spooky.then([{portal:portal},function(){
+				this.emit('console','opening all stores page');
+				this.thenOpen(portal.portal.baseUrl + portal.portal.storePath);				
+			}]);
+		}
+	}
+
+	var scrapeMerchantData = function() {
+		spooky.then([{portal:portal, response: response},
+ 		    function() {
+				this.emit('count',JSON.stringify(this.evaluate(function(portal){
+					return jQuery(portal.portal.rootElement).find(portal.pageData.name.element).length;
+				},{portal: portal})));
+				var firstName = this.evaluate(function(portal){
+					return jQuery(portal.portal.rootElement).find(portal.pageData.name.element).eq(0).text();
+				},{portal: portal});
+				this.emit('console','waited for root element; first merchant is '+firstName); 		    	
+ 		    }
+	    ]);
+
+		spooky.then([{portal:portal, response: response},
+ 		    function(){
+ 				this.emit('health',
+					this.evaluate(
+						function(pageMerchant, response){
+							response.health.jquery = (jQuery !== undefined);
+							if (response.health.jquery) {
+			        			response.health.root = ( jQuery(pageMerchant.portal.rootElement).length > 0 );
+			        			if (response.health.root) {
+			            			response.health.name = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).length > 0); 
+			            			if ( response.health.name ) {
+			            				var halfCount = parseInt(jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).length / 2);
+			            				response.health.link = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.link.element).length > 0);
+				 						response.health.reward = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.element).length > 0);
+				 						
+				 						// Make sure the text is not blank; Sample elements in the middle of the page to avoid edge effects
+				 						response.health.name = jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(halfCount).text() !== '';
+				 						response.health.link = jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.link.element).eq(halfCount).text() !== '';
+				 						response.health.reward = jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.element).eq(halfCount).text() !== '';
+			            			}        			
+			            		}
+							}
+							return JSON.stringify(response);
+						},
+						{ pageMerchant: portal,
+						  response: response }
+					)
+				);
+ 		    }
+	    ]);
+
+		spooky.then([
+		    {portal:portal, response: response},
 		    function(){
 				this.emit('processed',this.evaluate(function(pageMerchant, response){
-					// make sure jQuery is loaded
-					response.health.jquery = (jQuery !== undefined);
-					if (response.health.jquery) {
-						// check the health of other parameters
-	            		switch (pageMerchant.portal.scrapeType) {
-	            		case 0:
-	            			response.health.root = ( jQuery(pageMerchant.portal.rootElement).length > 0 );
-	            			if (response.health.root) {
-		            			response.health.name = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).length > 0); 
-		            			if ( !response.health.name && pageMerchant.pageData.name.altElement !== undefined ) {
-		            				response.health.altName = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.altElement).length > 0);
-		            			}
-		            			if ( response.health.name ) {
-		            				response.health.link = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.link.element).length > 0);
-			 						response.health.reward = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.element).length > 0);
-		            			} else if ( pageMerchant.pageData.link.altElement !== undefined &&
-		            					pageMerchant.pageData.reward.altElement !== undefined ) {
-		            				response.health.altLink = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.link.altElement).length > 0);
-			 						response.health.altReward = (jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.altElement).length > 0);		            				
-		            			}
-		            			
-		            			// ebates has a mixture of regular and alternate elements
-		            			// parse strategy on element-by-element basis
-	            				jQuery(pageMerchant.portal.rootElement).each(function(index, element){
-	            					var name, link, reward;
-	            					var name = jQuery(element).find(pageMerchant.pageData.name.element).text().trim();
-	                				if ( name !== '') {
-	                					link = jQuery(element).find(pageMerchant.pageData.link.element).attr('href');
-	                					reward = jQuery(element).find(pageMerchant.pageData.reward.element).text().trim();
-	                				} else if (pageMerchant.pageData.name.altElement !== undefined) {
-	                					response.health.altName = true;
-	                					name = jQuery(element).find(pageMerchant.pageData.name.altElement).attr(pageMerchant.pageData.name.altAttr).trim();
-            							link = jQuery(element).find(pageMerchant.pageData.link.altElement).attr('href');
-            							reward = jQuery(element).find(pageMerchant.pageData.reward.altElement).text().trim();
-	                				}
-	                				if (pageMerchant.pageData.reward.replace !== undefined) {
-	                					reward = reward.replace(new RegExp(pageMerchant.pageData.reward.replace),'').trim();
-	                				}
-	                				// since $.each is asynchronous, there is no way to eliminate duplicate entries
-	                				// that will need to be handled by grouping in the aggregate db call
-	                				response.merchants.push({name: name, link:link, reward:reward});
-	                			});
-		            		}
-	            			break;
-	            		case 1:
-	            			var nest = pageMerchant.portal.rootVariable.split('.');
-			  		  		var promo = window[nest[0]];
-		  		  			var remaining = nest.slice(1);
-			  		  		for (param in remaining){
-			  		  			promo = promo[remaining[param]];
-			  		  		}
-	            			response.health.rootElement = ( promo.length > 0 );
-	            			
-	            			if (response.health.rootElement) {
-	            				response.health.name = (promo[0][pageMerchant.pageData.name.element] !== null);
-	            				response.health.link = (promo[0][pageMerchant.pageData.link.element] !== null);
-	            				response.health.reward = (promo[0][pageMerchant.pageData.reward.element] !== null);
-	            			}
-	            			
-	            			if ( (response.health.name && response.health.link && response.health.reward) || 
-		            				 (response.health.altName && response.health.altLink && response.health.altReward) ) {
-	            				promo.forEach(function(entry,index){
-	            					response.merchants.push( {name: entry[pageMerchant.pageData.name.element],
-	            							link: entry[pageMerchant.pageData.link.element],
-	            							reward: entry[pageMerchant.pageData.reward.element]} );
-	              		  		});
-	            			}
-	            			break;
-	            		case 2:
-	            			// auth and indirect navigation
-	            			break;
-	            		case 3:
-	            			// pagination
-	            			break;
-		            	}
-	            	}
-					return JSON.stringify(response);
+					var merchants = [];
+        			jQuery(pageMerchant.portal.rootElement).each(function(index, element){
+    					var name, link, reward;
+    					var name = jQuery(element).find(pageMerchant.pageData.name.element).text().trim();
+        				if ( name !== '') {
+        					link = jQuery(element).find(pageMerchant.pageData.link.element).attr('href');
+        					reward = jQuery(element).find(pageMerchant.pageData.reward.element).text().trim();
+            				if (pageMerchant.pageData.reward.replace !== undefined) {
+            					reward = reward.replace(new RegExp(pageMerchant.pageData.reward.replace),'').trim();
+            				}
+            				merchants.push({name: name, link:link, reward:reward});
+        				}
+        			});
+        			return merchants;
 				},
 				{ pageMerchant: portal,
-				  response: response }));
-	    	}
-		]);
+				  response: response }
+				));
+		}]);
+	}
+
+	var count = 0;
+	var i=0;
+
+	var openPageAndScrape = function(){
+/*
+		spooky.then(function(){
+			this.capture('scrapeData.png');
+		});
+*/
+		spooky.then([{portal:portal, response:response, count:count, i:i},
+             function(){
+			// this can be written as it should be executed in the page context
+			var checkHealth = function(portal, response){
+				response.health.jquery = (jQuery !== undefined);
+				if (response.health.jquery) {
+        			response.health.root = ( jQuery(portal.portal.rootElement).length > 0 );
+        			if (response.health.root) {
+            			response.health.name = (jQuery(portal.portal.rootElement).find(portal.pageData.name.element).length > 0); 
+            			if ( response.health.name ) {
+            				var halfCount = parseInt(jQuery(portal.portal.rootElement).find(portal.pageData.name.element).length / 2);
+            				response.health.link = (jQuery(portal.portal.rootElement).find(portal.pageData.link.element).length > 0);
+	 						response.health.reward = (jQuery(portal.portal.rootElement).find(portal.pageData.reward.element).length > 0);
+	 						
+	 						// Make sure the text is not blank; Sample elements in the middle of the page to avoid edge effects
+	 						response.health.name = jQuery(portal.portal.rootElement).find(portal.pageData.name.element).eq(halfCount).text() !== '';
+	 						response.health.link = jQuery(portal.portal.rootElement).find(portal.pageData.link.element).eq(halfCount).text() !== '';
+	 						response.health.reward = jQuery(portal.portal.rootElement).find(portal.pageData.reward.element).eq(halfCount).text() !== '';
+            			}        			
+            		}
+				}
+				return JSON.stringify(response);
+			}
+			
+ 		    var scrapeMerchantData = function(portal, response){
+ 		    	var merchants = [];
+    			jQuery(portal.portal.rootElement).each(function(index, element){
+					var name, link, reward;
+					var name = jQuery(element).find(portal.pageData.name.element).text().trim();
+    				if ( name !== '') {
+    					link = jQuery(element).find(portal.pageData.link.element).attr('href');
+    					reward = jQuery(element).find(portal.pageData.reward.element).text().trim();
+        				if (portal.pageData.reward.replace !== undefined) {
+        					reward = reward.replace(new RegExp(portal.pageData.reward.replace),'').trim();
+        				}
+        				merchants.push({name: name, link:link, reward:reward});
+    				}
+    			});
+    			return JSON.stringify(merchants);
+			}
+
+			// identify AJAX-loaded pages by defining the loadSelector
+			if ( portal.portal.loadSelector !== undefined && this.visible(portal.portal.loadSelector) ) {
+				this.emit('console','pagination exists? '+JSON.stringify(this.exists(portal.portal.pagination)));
+				this.emit('console','loader visible?'+JSON.stringify(this.visible(portal.portal.loadSelector)));
+				this.emit('console','loader exists?'+JSON.stringify(this.exists(portal.portal.loadSelector)));
+				// wait while the selector is visible in order to scrape all data loaded on the page
+				this.waitWhileVisible(portal.portal.loadSelector,
+						function(){ // success function
+							// give a read on what page we are on
+							this.emit('i',JSON.stringify(i++));
+							// scrape the page data
+							this.emit('console',this.evaluate(scrapeMerchantData));
+						},
+						function(){ // timeout function
+							this.emit('console','loader wait timed out');
+						},
+						portal.portal.waitTimeout);
+			} else { 
+				// the page is not loaded by AJAX; wait for the root element to load
+				this.waitForSelector(portal.portal.rootElement,
+						function(){ // success function
+							//this.emit('i',JSON.stringify(i++));
+							// scrape the page data
+							this.emit('health', this.evaluate(checkHealth,{portal:portal, response:response}));
+							this.emit('processed', this.evaluate(scrapeMerchantData,{portal:portal, response:response}));
+						},
+						function(){ // timeout function
+							this.echo('root element wait timed out');
+						},
+						portal.portal.waitTimeout); 
+			}
+		}]);
+		spooky.then([{portal:portal, count:count},function(){
+			this.emit('console','scrapeType<3?'+JSON.stringify(portal.portal.scrapeType<3));
+			if ( portal.portal.scrapeType > 2 ||
+					(portal.portal.pagination !== undefined && this.exists(portal.portal.pagination)) ){
+				this.emit('console','next button exists?'+JSON.stringify(casper.exists(portal.portal.pagination)));
+				this.emit('console','next button visible?'+JSON.stringify(casper.visible(portal.portal.pagination)));
+				this.thenClick(portal.portal.pagination);
+				this.then(openPageForScrape);
+			}		
+		}]);
+	}
+	
+	var logoutFromPortal = function() {
+		spooky.then([{portal:portal},function(){
+			this.emit('console','logoutLink exists? '+JSON.stringify(this.exists(portal.portal.logoutLinkSelector)));
+			if ( this.exists(portal.portal.logoutLinkSelector) ){
+				this.emit('console',"clicking logoutLink")
+				this.click(portal.portal.logoutLinkSelector);		
+			}			
+		}]);
+	}
+
+	var singleScrape = function(portal) {
+		if ( portal.portal.requiresAuth !== undefined && portal.portal.requiresAuth ) {
+			spooky.start(portal.portal.authUrl, function(){
+				authenticate();		
+			});
+		} else {
+			spooky.start(portal.portal.baseUrl);
+		}
+
+		spooky.then([{response:response},function(){
+			response.health.jquery = this.evaluate(function(response){
+				// make sure jQuery is loaded
+				return (jQuery !== undefined);
+			},{response:response});
+		}]);
+		navToAllStores();
+		openPageAndScrape(scrapeMerchantData);
+		if ( portal.portal.logoutLink !== undefined && 
+				(portal.portal.requiresAuth !== undefined && portal.portal.requiresAuth) ) {
+			logoutFromPortal();
+		}
 		return spooky.run();
 	}
 	
@@ -270,25 +420,54 @@ module.exports = function(portal, callback) {
 		    		+ " at URL "+resourceError.url);
 		});
 		
+		spooky.on('health', function (healthResult) {
+			console.log('health: '+healthResult);
+			response = JSON.parse(healthResult);
+			
+			// decide whether to continue processing if health is off
+			if ( !response.health.jquery || !reponse.health.rootElement ||
+					!response.health.name || !response.health.link || !response.health.reward ) {
+				callback([999, 'page health fail'],JSON.stringify(response));
+			}
+		});
+
+		spooky.on('i', function (iResult) {
+			console.log('i: '+iResult);
+			i = JSON.parse(iResult);
+		});
+
+		spooky.on('count', function (countResult) {
+			console.log('count: '+countResult);
+			count = JSON.parse(countResult);
+		});
+
+		// if the response array is unset, use the entire incoming data as response
+		// otherwise, append new merchant data to existing response.merchants array
 		spooky.on('processed', function (scrapeResult) {
-			console.log('processed: '+scrapeResult);
-			response = JSON.parse(scrapeResult);
+			//console.log('processed: '+scrapeResult);
+			scrapedMerchants = JSON.parse(scrapeResult);
+			console.log('merchants before `processed` call: '+response.merchants.length);
+			console.log('merchants in scrapeResult : '+scrapedMerchants.length);
+			
+			response.merchants = response.merchants.concat(scrapedMerchants);
+			console.log('merchants after `processed` call: '+response.merchants.length);
+		});
+		
+		spooky.on('run.complete', function(){
+			console.log('run complete # merchants:'+response.merchants.length);
 			if (response.merchants.length > 0) {
 				response.merchants.forEach(function(merch, index, origArray){
 					//console.log(JSON.stringify([origArray[index], origArray[index].name, origArray[index].link, origArray[index].reward]));
 					origArray[index] = new merchant( origArray[index].name, origArray[index].link, origArray[index].reward, portal );
 				});
 				console.log('merchant 0:'+JSON.stringify(response.merchants[0]));
+				callback(null, JSON.stringify(response));
+			} else {
+				callback([111, 'merchants not found'], JSON.stringify(response));
 			}
-		});
-		
-		spooky.on('run.complete', function(){
-			console.log('run complete # merchants:'+response.merchants.length);
-			console.log('run complete # merchants:'+JSON.stringify(response));
-			callback(null, JSON.stringify(response));
 		});		
 
-		return singleScrape(portal, response);
+		return singleScrape(portal);
 	}
 	var spooky = new Spooky(config, spookyFunction);
 }

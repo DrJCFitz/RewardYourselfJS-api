@@ -24,7 +24,7 @@ db.open(function (error, client) {
 				console.log(data);
 				done(); 
 			}
-			console.log('cronRemote:'+data);
+			//console.log('cronRemote:'+data);
 			var response = JSON.parse(data);
 			console.log(response.merchants.length+" merchants returned for "
 					+"["+portal.portal.key+","+portal.portal.type+"]");
