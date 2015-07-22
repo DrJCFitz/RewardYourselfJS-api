@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "async": "^0.9.0",
-    "casperjs": "^1.1.0-beta3"
+    "aws-sdk": "^2.1.39",
+    "dynamodb-doc": "^1.0.0",
+    "node-curl": "^0.3.3"
   }
 }

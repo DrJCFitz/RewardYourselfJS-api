@@ -3,16 +3,16 @@ try {
 } catch (e) {
     var Spooky = require('../lib/spooky');
 }
-var merchantResult = null;
 
 var config = 
-{ child: { transport: 'http', 'will-navigate':false, 'ssl-protocol':'any', 'ignore-ssl-errors':'yes' },
+{ child: { 'transport': 'http', 'ssl-protocol':'any', 'ignore-ssl-errors':'yes' },
   casper: { logLevel: 'debug',
           verbose: true,
           clientScripts: [ './bower_components/jquery/dist/jquery.js',
               './config/portal-keys.js',
               './public/assets/js/pageScrape.js'
             ],
+          viewportSize: { width: 800, height: 1024 },
           pageSettings: {
               javascriptEnabled: true,
               loadImages: false,
@@ -28,17 +28,58 @@ var config =
 
 
 module.exports = function(portal, portal_keys, callback) {
+	var merchantResult = {
+			'merchants': [],
+			'health': { 'jquery': false, 
+				'root': false, 
+				'name': false, 
+				'altName': null, 
+				'link': false, 
+				'altLink': null, 
+				'reward': false, 
+				'altReward': null }
+	};
+
 	var merchantScrape = function(portal) {
 		spooky.start(portal.portal.baseUrl + portal.portal.storePath);
 		spooky.then( [{portal:portal},
+		  		    function(){ 
+		  			 this.emit('console',
+		  		            this.evaluate(function(pageMerchant){
+		  		            	return JSON.stringify(jQuery(pageMerchant.portal.rootElement).length);
+		  		            },
+		  		            {pageMerchant: portal})
+	  		        );
+  	    }]);
+		spooky.then( [{portal:portal},
+			  		    function(){ 
+			  			 this.emit('console',
+			  		            this.evaluate(function(pageMerchant){
+					            	return JSON.stringify([jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.name.element).eq(0).text(),
+					            	                       jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.link.element).eq(0).attr('href'),
+					            	                       jQuery(pageMerchant.portal.rootElement).find(pageMerchant.pageData.reward.element).eq(0).text()]);
+			  		            },
+			  		            {pageMerchant: portal})
+		  		        );
+	  	    }]);
+		spooky.then( [{portal:portal, merchantResult: merchantResult},
 		    function(){ 
-			 this.emit('processedMerchant',
-		            this.evaluate(function(pageMerchant){
-		                return jQuery(pageMerchant.portal.rootElement).pageScrape({ merchantKeys: keyTrans,
-            				portal: pageMerchant.portal,
-            				merchant: pageMerchant.pageData }).process();
+			 this.emit('processed',
+		            this.evaluate(function(pageMerchant, merchantResult){
+		            	jQuery(pageMerchant.portal.rootElement).each(function(index, element){
+            				if ( jQuery(element).find(pageMerchant.pageData.name.element).length > 0 ) {
+            					merchantResult.merchants.push({name: jQuery(element).find(pageMerchant.pageData.name.element).text(), 
+            							link: jQuery(element).find(pageMerchant.pageData.link.element).attr('href'),
+            							reward: jQuery(element).find(pageMerchant.pageData.reward.element).text() } );
+            				} else {
+            					merchantResult.merchants.push({ name: jQuery(element).find(pageMerchant.pageData.name.altElement).attr(pageMerchant.pageData.name.altAttr), 
+            							link: jQuery(element).find(pageMerchant.pageData.link.altElement).attr('href'),
+            							reward: jQuery(element).find(pageMerchant.pageData.reward.altElement).text() } );
+            				}
+            			});
+		                return JSON.stringify(merchantResult);
 		            },
-		            {pageMerchant: portal})
+		            {pageMerchant: portal, merchantResult: merchantResult})
 		        );
 	    }]);
 		return spooky.run();
@@ -96,7 +137,7 @@ module.exports = function(portal, portal_keys, callback) {
 					        }
 					    }
 					    
-					    this.emit('processedMerchant',
+					    this.emit('processed',
 								this.evaluate(function(pageMerchant, portal_keys, parseName, parseReward, merchantNameToKey){
 									var name, key, link, reward,
 										merchants = [],
@@ -171,10 +212,19 @@ module.exports = function(portal, portal_keys, callback) {
 			callback(msg, stacktrace);
 		});
 		
-		spooky.on('processedMerchant', function (result) {
+		spooky.on('processed', function (result) {
 			merchantResult = result;
 		});
 		
+		spooky.on("page.error", function(msg, trace) {
+		    console.log("ERROR: " + msg 
+		    		+" for ["+portal.portal.key+","+portal.portal.type+"]");
+		});
+
+		spooky.on("load.failed", function(object) {
+		    callback(true, "ERROR: Load failed");
+		});
+
 	   	spooky.on("resource.requested", function(requestData, networkRequest){
     			console.log('Request (#' + requestData.id + '): ' + JSON.stringify(requestData));
     			if (requestData.url == 'about:blank') {

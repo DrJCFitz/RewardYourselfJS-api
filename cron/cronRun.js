@@ -24,25 +24,26 @@ db.open(function (error, client) {
 				crontest(portal, portal_keys,
 					function(err, data){
 						if (err) { console.log(err); console.log(data); }
-						var merchants = JSON.parse(data);
+						var response = JSON.parse(data);
 					   
-					    console.log(merchants.length + ' merchants returned');
+					    console.log(response.merchants.length + ' merchants returned');
 					    console.log('portalKey:'+portal.portal.key+', type:'+portal.portal.type);
 					    
-					    if (merchants.length > 0) {
-					        collection.bulkWrite([
+					    if (response.merchants.length > 0) {
+/*					        collection.bulkWrite([
 					            {updateMany: {
 					            	filter: {portalKey: portal.portal.key, type: portal.portal.type}, 
 					            	update:{ $set: {enabled:false} } },
 					            	upsert: false 
 					            },
-					    		{insertMany: merchants  } ],
+					    		{insertMany: response.merchants  } ],
 					    		{ordered:true, w:1},
 				    			function(err, r) {
 				    				if (err) { console.log('there was an error'); }
 				    				done();
 				    			}
-					        );
+					        ); */
+					    	done();
 					    } else {
 					    	done();
 					    }
