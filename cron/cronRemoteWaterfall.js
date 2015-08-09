@@ -1,6 +1,7 @@
 var async = require('async');
 var crontab = require('node-crontab');
 var mongodb = require('../db/mongoDB/mongoDBConn.js');
+var dynamoBatchWrite = require('../db/DynamoDB/batchWrite.js');
 var portals = require('../config/portals.js');
 var rwyscron = require('./spookyRemote.js');
 var curlScrape = require('./curlScrape.js');
@@ -64,12 +65,10 @@ var describeMerchant = require('./describeMerchant');
      				var merchants = describeMerchant( portal, curlResult.merchants );
      				callback(null, merchants);
             	 }
-             }],
-             function(err, describeResult){
-				if (err) {
-					portalDone();
-				}
-				console.log('write results to db');
+             },
+             function(describeResult, callback){
+            	 console.log('in describeResult function');
+ 				console.log('write results to db');
 				// last step per portal: bulk-write results to mongoDB merchants table
 				// mongoDB store will only be used for current data
 				mongodb.updateMerchants(portal, describeResult, function(err, data){
@@ -77,6 +76,19 @@ var describeMerchant = require('./describeMerchant');
 						console.log(err);
 					}
 					console.log(data);
+					callback(null, describeResult);
+				});
+             }],
+             function(err, writeMongoResult){
+				if (err) {
+					console.log('there was an error and portal loop is exiting');
+					portalDone();
+				}
+				//console.log(JSON.stringify(writeMongoResult));
+				dynamoBatchWrite(writeMongoResult, 'Merchants', function(err, data){
+					if (err) {
+						console.log('there was an error writing to dynamo, loop is exiting');
+					}
 					portalDone();
 				});
 		});

@@ -346,8 +346,8 @@ module.exports = function(portal, callback) {
 		});
 		
 		spooky.on("resource.error", function(resourceError) {
-		    callback(true, "Error "+resourceError.errorCode+": "+resourceError.errorString
-		    		+ " at URL "+resourceError.url);
+		    //callback(true, "Error "+resourceError.errorCode+": "+resourceError.errorString
+		    console.log("ERROR: " + resourceError.errorCode + ": "+resourceError.errorString); 
 		});
 		
 		spooky.on('health', function (healthResult) {

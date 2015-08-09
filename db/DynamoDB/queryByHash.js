@@ -1,5 +1,7 @@
 var AWS = require('aws-sdk');
-var dynamo = new AWS.DynamoDB({endpoint:'http://127.0.0.1:8000',region:'us-east-1'});
+var DOC = require('dynamodb-doc');
+var dynamo = new AWS.DynamoDB({region:'us-east-1'});
+var docClient = new DOC.DynamoDB(dynamo);
 
 var queryByHash = function(tableName, hashKey, hashValue, callback) {
 	var params = {};
@@ -21,3 +23,5 @@ var queryByHash = function(tableName, hashKey, hashValue, callback) {
 	docClient.query(params, queryCallback);
 	
 }
+
+module.exports = queryByHash;
