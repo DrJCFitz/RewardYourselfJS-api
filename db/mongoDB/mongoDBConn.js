@@ -1,7 +1,7 @@
 var mongodb = require('mongodb');
 
 var server = new mongodb.Server("127.0.0.1", 27017, {});
-var db = new mongodb.Db('merchantDemo', server, {w: 1});
+var db = new mongodb.Db('newMerchant', server, {w: 1});
 
 var collection;
 db.open(function (error, client) {
@@ -9,7 +9,7 @@ db.open(function (error, client) {
     if ( !error ) {
         console.log('connected to db');
     }
-    collection = db.collection("merchantDemo");
+    collection = db.collection("newMerchant");
 });
 
 var updateMerchants = function(portal, merchants, callback) {
